@@ -15,12 +15,13 @@ local function vehicleIsCycle(vehicle)
 	return class == 8 or class == 13
 end
 
-function Weapon.Equip(item, data)
+function Weapon.Equip(item, data, noWeaponAnim)
 	local playerPed = cache.ped
 	local coords = GetEntityCoords(playerPed, true)
+    local sleep
 
 	if client.weaponanims then
-		if cache.vehicle and vehicleIsCycle(cache.vehicle) then
+		if noWeaponAnim or (cache.vehicle and vehicleIsCycle(cache.vehicle)) then
 			goto skipAnim
 		end
 
@@ -30,7 +31,7 @@ function Weapon.Equip(item, data)
 			anim = nil
 		end
 
-		local sleep = anim and anim[3] or 1200
+		sleep = anim and anim[3] or 1200
 
 		Utils.PlayAnimAdvanced(sleep, anim and anim[1] or 'reaction@intimidation@1h', anim and anim[2] or 'intro', coords.x, coords.y, coords.z, 0, 0, GetEntityHeading(playerPed), 8.0, 3.0, sleep*2, 50, 0.1)
 	end
@@ -73,10 +74,10 @@ function Weapon.Equip(item, data)
 
 	local ammo = item.metadata.ammo or item.throwable and 1 or 0
 
-	SetPedAmmo(playerPed, data.hash, ammo)
 	SetCurrentPedWeapon(playerPed, data.hash, true)
 	SetPedCurrentWeaponVisible(playerPed, true, false, false, false)
 	SetWeaponsNoAutoswap(true)
+	SetPedAmmo(playerPed, data.hash, ammo)
 	SetTimeout(0, function() RefillAmmoInstantly(playerPed) end)
 
 	if item.group == `GROUP_PETROLCAN` or item.group == `GROUP_FIREEXTINGUISHER` then
@@ -85,19 +86,19 @@ function Weapon.Equip(item, data)
 	end
 
 	TriggerEvent('ox_inventory:currentWeapon', item)
-	Utils.ItemNotify({ item, 'ui_equipped' })
 
-	return item
+	if client.weaponnotify then
+		Utils.ItemNotify({ item, 'ui_equipped' })
+	end
+
+	return item, sleep
 end
 
 function Weapon.Disarm(currentWeapon, noAnim)
 	if currentWeapon?.timer then
 		currentWeapon.timer = nil
 
-		if source == '' then
-			TriggerServerEvent('ox_inventory:updateWeapon')
-		end
-
+        TriggerServerEvent('ox_inventory:updateWeapon')
 		SetPedAmmo(cache.ped, currentWeapon.hash, 0)
 
 		if client.weaponanims and not noAnim then
@@ -122,7 +123,10 @@ function Weapon.Disarm(currentWeapon, noAnim)
 
 		::skipAnim::
 
-		Utils.ItemNotify({ currentWeapon, 'ui_holstered' })
+		if client.weaponnotify then
+			Utils.ItemNotify({ currentWeapon, 'ui_holstered' })
+		end
+
 		TriggerEvent('ox_inventory:currentWeapon')
 	end
 
